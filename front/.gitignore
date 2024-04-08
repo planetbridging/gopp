@@ -9,6 +9,8 @@
 # production
 #/build
 
+/build/pcap
+
 # misc
 .DS_Store
 .env

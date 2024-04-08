@@ -55,6 +55,12 @@ func main() {
         return c.SendFile("./front/build/index.html")
     })
 
+    app.Get("/record", func(c *fiber.Ctx) error {
+        return c.SendFile("./front/build/index.html")
+    })
+
+    setupRoutes(app)
+
     go func() {
         if err := app.Listen(":3000"); err != nil {
             fmt.Println("Error running server:", err)
@@ -73,6 +79,62 @@ func main() {
     }
     fmt.Println("Server shut down.")
 }
+
+func setupRoutes(app *fiber.App) {
+    app.Post("/startrecord", startRecordHandler)
+    app.Post("/stoprecord", stopRecordHandler)
+    app.Get("/list-devices", listDevicesHandler)
+    app.Get("/list-pcap-files", listPcapFilesHandler)
+}
+
+func listDevicesHandler(c *fiber.Ctx) error {
+    devices, err := pcap.FindAllDevs()
+    if err != nil {
+        fmt.Printf("Error finding devices: %v", err)
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "error": "Failed to list devices",
+        })
+    }
+
+    // Convert the list of devices to a format that's easy to consume on the frontend
+    type DeviceInfo struct {
+        Name        string `json:"name"`
+        Description string `json:"description"`
+    }
+    var deviceInfos []DeviceInfo
+    for _, device := range devices {
+        deviceInfos = append(deviceInfos, DeviceInfo{Name: device.Name, Description: device.Description})
+    }
+
+    return c.JSON(deviceInfos)
+}
+
+func listPcapFilesHandler(c *fiber.Ctx) error {
+    var filesInfo []map[string]string
+    dir := "./front/build/pcap"
+
+    files, err := os.ReadDir(dir)
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "error": "Failed to read directory",
+        })
+    }
+
+    for _, file := range files {
+        if !file.IsDir() {
+            fileInfo, _ := file.Info()
+            filesInfo = append(filesInfo, map[string]string{
+                "name":     file.Name(),
+                "date":     fileInfo.ModTime().Format(time.RFC3339),
+                "size":     fmt.Sprintf("%d", fileInfo.Size()),
+                "download": fmt.Sprintf("/pcap/%s", file.Name()),
+            })
+        }
+    }
+
+    return c.JSON(filesInfo)
+}
+
 
 func handleWebSocket(c *websocket.Conn) {
     fmt.Println("Client connected")
