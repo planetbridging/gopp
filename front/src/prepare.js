@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Button, Select, Box, Text, Progress, Table, Thead, Tbody, Tr, Th, Td, Link } from '@chakra-ui/react';
+import { Button, Select, Box, Text, Progress, Table, Thead, Tbody, Tr, Th, Td, Link, Textarea } from '@chakra-ui/react';
 import axios from 'axios';
 
 class DataPreparation extends Component {
@@ -11,7 +11,7 @@ class DataPreparation extends Component {
       processingProgress: 0,
       csvData: [],
       csvFiles: [],
-      rules: [],
+      rules: '',
     };
   }
 
@@ -21,7 +21,10 @@ class DataPreparation extends Component {
   }
 
   fetchPcapFiles = () => {
-    // Fetch pcap files from backend
+    const httpUrl = this.props.wsUrl.replace('ws://', 'http://');
+    axios.get(`${httpUrl}/list-pcap-files`)
+      .then(response => this.setState({ pcapFiles: response.data }))
+      .catch(error => console.error('Error fetching pcap files:', error));
   };
 
   fetchCsvFiles = () => {
@@ -32,18 +35,38 @@ class DataPreparation extends Component {
     this.setState({ selectedPcap: event.target.value });
   };
 
+  handleRulesChange = (event) => {
+    this.setState({ rules: event.target.value });
+  };
+
   applyRules = () => {
-    // Apply rules to the selected pcap file and process it
-    // Update `processingProgress` and `csvData` accordingly
+    const { selectedPcap, rules } = this.state;
+    const httpUrl = this.props.wsUrl.replace('ws://', 'http://');
+
+    // Parse the rules from the textarea
+    const parsedRules = rules.split('\n').map((rule) => {
+      const [condition, scanType] = rule.split('=>');
+      return {
+        condition: condition.trim(),
+        scanType: scanType.trim(),
+      };
+    });
+
+    // Send the selected PCAP file and parsed rules to the backend for processing
+    axios.post(`${httpUrl}/process-pcap`, { pcapFile: selectedPcap, rules: parsedRules })
+      .then(response => {
+        // Update `processingProgress` and `csvData` based on the response
+        this.setState({
+          processingProgress: response.data.progress,
+          csvData: response.data.csvData,
+        });
+      })
+      .catch(error => console.error('Error processing PCAP file:', error));
   };
 
   saveCsv = () => {
     // Save the CSV data to a file on the backend
     // Refresh the list of CSV files
-  };
-
-  addRule = () => {
-    // Add a new rule to the `rules` state
   };
 
   render() {
@@ -53,49 +76,22 @@ class DataPreparation extends Component {
       <Box p={5}>
         <Select placeholder="Select pcap file" value={selectedPcap} onChange={this.handlePcapSelection}>
           {pcapFiles.map((file, index) => (
-            <option key={index} value={file}>{file}</option>
+            <option key={index} value={file.name}>{file.name}</option>
           ))}
         </Select>
 
-        <Button onClick={this.applyRules}>Apply Rules</Button>
-        <Button onClick={this.addRule}>Add Rule</Button>
+        <Textarea
+          mt={4}
+          placeholder="Enter scan detection rules"
+          value={rules}
+          onChange={this.handleRulesChange}
+        />
 
-        {processingProgress > 0 && (
-          <Progress value={processingProgress} />
-        )}
+        <Button mt={4} onClick={this.applyRules}>Apply Rules</Button>
 
-        {csvData.length > 0 && (
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>Column 1</Th>
-                <Th>Column 2</Th>
-                {/* Add more columns as needed */}
-              </Tr>
-            </Thead>
-            <Tbody>
-              {csvData.map((row, index) => (
-                <Tr key={index}>
-                  <Td>{row.column1}</Td>
-                  <Td>{row.column2}</Td>
-                  {/* Add more data cells as needed */}
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
-        )}
 
-        <Button onClick={this.saveCsv}>Save CSV</Button>
 
-        <Box mt={5}>
-          <Text>Saved CSV Files:</Text>
-          {csvFiles.map((file, index) => (
-            <Box key={index}>
-              <Text>{file.name}</Text>
-              <Link href={`/path/to/csv/${file.name}`} download>Download</Link>
-            </Box>
-          ))}
-        </Box>
+
       </Box>
     );
   }

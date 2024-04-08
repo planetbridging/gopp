@@ -243,3 +243,112 @@ func readPcapFile(filename string) ([]map[string]interface{}, error) {
     return packets, nil
 }
 
+
+func handlePcapColumns(c *fiber.Ctx) error {
+    filename := c.Params("filename")
+    columns, err := getUniquePcapColumns(fmt.Sprintf("./front/build/pcap/%s", filename))
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+    }
+
+    response := fiber.Map{
+        "columns": columns,
+    }
+
+    return c.JSON(response)
+}
+
+func getUniquePcapColumns(filename string) ([]string, error) {
+    pcapFile, err := pcap.OpenOffline(filename)
+    if err != nil {
+        return nil, fmt.Errorf("failed to open pcap file: %v", err)
+    }
+    defer pcapFile.Close()
+
+    packetSource := gopacket.NewPacketSource(pcapFile, pcapFile.LinkType())
+    uniqueColumns := make(map[string]bool)
+
+    for packet := range packetSource.Packets() {
+        packetInfo := make(map[string]interface{})
+
+        // Metadata
+        packetInfo["timestamp"] = packet.Metadata().Timestamp
+        packetInfo["length"] = packet.Metadata().CaptureInfo.Length
+
+        // Ethernet layer
+        if ethernetLayer := packet.Layer(layers.LayerTypeEthernet); ethernetLayer != nil {
+            ethernet, _ := ethernetLayer.(*layers.Ethernet)
+            packetInfo["ethernet_source"] = ethernet.SrcMAC.String()
+            packetInfo["ethernet_destination"] = ethernet.DstMAC.String()
+            packetInfo["ethernet_type"] = ethernet.EthernetType.String()
+        }
+
+        // IP layer
+        if ipLayer := packet.Layer(layers.LayerTypeIPv4); ipLayer != nil {
+            ip, _ := ipLayer.(*layers.IPv4)
+            packetInfo["ip_version"] = ip.Version
+            packetInfo["ip_ihl"] = ip.IHL
+            packetInfo["ip_tos"] = ip.TOS
+            packetInfo["ip_length"] = ip.Length
+            packetInfo["ip_id"] = ip.Id
+            packetInfo["ip_flags"] = ip.Flags
+            packetInfo["ip_fragment_offset"] = ip.FragOffset
+            packetInfo["ip_ttl"] = ip.TTL
+            packetInfo["ip_protocol"] = ip.Protocol
+            packetInfo["ip_checksum"] = ip.Checksum
+            packetInfo["ip_source"] = ip.SrcIP.String()
+            packetInfo["ip_destination"] = ip.DstIP.String()
+            packetInfo["ip_options"] = ip.Options
+        }
+
+        // TCP layer
+        if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
+            tcp, _ := tcpLayer.(*layers.TCP)
+            packetInfo["tcp_source_port"] = tcp.SrcPort
+            packetInfo["tcp_destination_port"] = tcp.DstPort
+            packetInfo["tcp_sequence"] = tcp.Seq
+            packetInfo["tcp_acknowledgment"] = tcp.Ack
+            packetInfo["tcp_data_offset"] = tcp.DataOffset
+            packetInfo["tcp_flags_ns"] = tcp.NS
+            packetInfo["tcp_flags_cwr"] = tcp.CWR
+            packetInfo["tcp_flags_ece"] = tcp.ECE
+            packetInfo["tcp_flags_urg"] = tcp.URG
+            packetInfo["tcp_flags_ack"] = tcp.ACK
+            packetInfo["tcp_flags_psh"] = tcp.PSH
+            packetInfo["tcp_flags_rst"] = tcp.RST
+            packetInfo["tcp_flags_syn"] = tcp.SYN
+            packetInfo["tcp_flags_fin"] = tcp.FIN
+            packetInfo["tcp_window"] = tcp.Window
+            packetInfo["tcp_checksum"] = tcp.Checksum
+            packetInfo["tcp_urgent_pointer"] = tcp.Urgent
+            packetInfo["tcp_options"] = tcp.Options
+        }
+
+        // UDP layer
+        if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
+            udp, _ := udpLayer.(*layers.UDP)
+            packetInfo["udp_source_port"] = udp.SrcPort
+            packetInfo["udp_destination_port"] = udp.DstPort
+            packetInfo["udp_length"] = udp.Length
+            packetInfo["udp_checksum"] = udp.Checksum
+        }
+
+        // Raw payload
+        if appLayer := packet.ApplicationLayer(); appLayer != nil {
+            packetInfo["payload"] = string(appLayer.Payload())
+        }
+
+        // Update the uniqueColumns map with the keys from packetInfo
+        for key := range packetInfo {
+            uniqueColumns[key] = true
+        }
+    }
+
+    // Convert the uniqueColumns map keys to a slice
+    columns := make([]string, 0, len(uniqueColumns))
+    for column := range uniqueColumns {
+        columns = append(columns, column)
+    }
+
+    return columns, nil
+}

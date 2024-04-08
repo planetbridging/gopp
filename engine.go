@@ -89,6 +89,7 @@ func setupRoutes(app *fiber.App) {
     app.Get("/list-devices", listDevicesHandler)
     app.Get("/list-pcap-files", listPcapFilesHandler)
     app.Get("/jsonpcap/:filename", handlePcapFile)
+    app.Get("/jsonpcapcolumns/:filename", handlePcapColumns)
 }
 
 func listDevicesHandler(c *fiber.Ctx) error {
