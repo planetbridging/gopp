@@ -39,7 +39,7 @@ func main() {
         AllowHeaders: "Origin, Content-Type, Accept",
     }))
 
-    app.Get("/ws", websocket.New(handleWebSocket))
+    app.Get("/traffic", websocket.New(handleWebSocket))
 
     go captureTraffic(app)
 
