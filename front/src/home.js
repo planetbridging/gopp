@@ -1,3 +1,4 @@
+import { Wrap,WrapItem,Card, CardHeader, CardBody, CardFooter,Heading } from '@chakra-ui/react';
 import React, { Component } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
 
@@ -16,14 +17,17 @@ class HomePage extends Component {
     try{
 
         
-        //testing
-        //const ws = new WebSocket('ws://192.168.0.222:3000/ws');
+        
 
         //prod
-        //const ws = new WebSocket();
         const protocolPrefix = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocolPrefix}//${window.location.host}/ws`;
-        const ws = new WebSocket(wsUrl);
+        var wsUrl = `${protocolPrefix}//${window.location.host}/ws`;
+
+        //testing
+        wsUrl = 'ws://192.168.0.222:3000/ws';
+
+        var ws = new WebSocket(wsUrl);
+
         ws.onopen = () => {
         console.log('Connected to server');
         };
@@ -92,20 +96,28 @@ class HomePage extends Component {
     }
     return color;
   }
-  
 
-  render() {
+  renderDevices(){
     const { devices } = this.state;
-    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042']; // Colors for the pie chart sectors
 
     return (
       <div>
         <h1>Traffic Information - Last 60 Seconds</h1>
+        <Wrap>
+
         {Object.entries(devices).map(([device, trafficData]) => (
-          <div key={device}>
-            <h2>Device: {device}</h2>
+          <WrapItem key={device}>
+            <Wrap>
+              
+            
+              <WrapItem bg="teal-100">
             {/* Line chart for overall traffic data */}
-            <LineChart width={600} height={300} data={trafficData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <Card variant={"filled"}>
+      <CardHeader>
+        <Heading size='md'> Device: {device} - traffic</Heading>
+      </CardHeader>
+      <CardBody>
+      <LineChart width={400} height={300} data={trafficData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="timestamp" scale="time" type="number" domain={['dataMin', 'dataMax']} tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()} />
               <YAxis />
@@ -113,9 +125,22 @@ class HomePage extends Component {
               <Legend />
               <Line type="monotone" dataKey="bytes" stroke="#8884d8" activeDot={{ r: 8 }} />
             </LineChart>
+      </CardBody>
+    </Card>
+            
+            
+            </WrapItem>
 
+
+            <WrapItem bg="blue-100">
             {/* Pie chart for aggregated port traffic data */}
-            <PieChart width={400} height={400}>
+
+            <Card variant={"filled"}>
+      <CardHeader>
+        <Heading size='md'> Device: {device} - port</Heading>
+      </CardHeader>
+      <CardBody>
+      <PieChart width={400} height={400}>
             <Pie dataKey="value" isAnimationActive={false} data={this.aggregatePortData(device)} cx={200} cy={200} outerRadius={80} fill="#8884d8" label={({ name, value }) => `${name}: ${value}`}>
   {this.aggregatePortData(device).map((entry, index) => (
     <Cell key={`cell-${index}`} fill={this.generateColor(entry.name)} />
@@ -124,10 +149,33 @@ class HomePage extends Component {
 
               <Tooltip />
             </PieChart>
-          </div>
+      </CardBody>
+    </Card>
+
+           
+           
+            </WrapItem>
+            </Wrap>
+          </WrapItem>
         ))}
+        </Wrap>
       </div>
     );
+  }
+  
+
+  render() {
+    const { devices } = this.state;
+    const hasDevices = devices && typeof devices === 'object' && Object.keys(devices).length > 0;
+    var showDevices = <div></div>
+
+    if(hasDevices){
+      showDevices = this.renderDevices();
+    }
+
+    return <div>
+      {showDevices}
+    </div>
   }
 }
 
