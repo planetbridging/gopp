@@ -62,6 +62,10 @@ func main() {
         return c.SendFile("./front/build/index.html")
     })
 
+    app.Get("/preprocessing", func(c *fiber.Ctx) error {
+        return c.SendFile("./front/build/index.html")
+    })
+
     setupRoutes(app)
 
     go func() {

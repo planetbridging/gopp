@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Button, Select, Box, Text, Progress, Table, Thead, Tbody, Tr, Th, Td, Link, Textarea } from '@chakra-ui/react';
+import { Tabs, TabList, TabPanels, Tab, TabPanel,Button, Select, Box, Text, Progress, Table, Thead, Tbody, Tr, Th, Td, Link, Textarea } from '@chakra-ui/react';
 import axios from 'axios';
 
 class DataPreparation extends Component {
@@ -91,6 +91,20 @@ class DataPreparation extends Component {
 
 
 
+        <Tabs isFitted variant='enclosed'>
+        <TabList mb='1em'>
+            <Tab>PCAP</Tab>
+            <Tab>CSV</Tab>
+        </TabList>
+        <TabPanels>
+            <TabPanel>
+            <p>one!</p>
+            </TabPanel>
+            <TabPanel>
+            <p>two!</p>
+            </TabPanel>
+        </TabPanels>
+        </Tabs>
 
       </Box>
     );
