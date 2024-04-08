@@ -1,16 +1,7 @@
 import React, { Component } from 'react';
 import {
-  Box,
-  Button,
-  FormControl,
-  FormLabel,
-  Input,
-  Checkbox,
-  Select,
-  Switch,
-  Text,
-  Link,
-  VStack
+  Box, Button, FormControl, FormLabel, Input, Checkbox, Select, Switch,
+  Text, Link, VStack, Table, Thead, Tbody, Tr, Th, Td
 } from '@chakra-ui/react';
 import axios from 'axios';
 
@@ -24,6 +15,7 @@ class RecordTraffic extends Component {
       devices: [],
       selectedDevice: '',
       pcapFiles: [],
+      viewPcapData: null, // To store the content of the selected pcap file
     };
   }
 
@@ -95,6 +87,25 @@ class RecordTraffic extends Component {
 
   render() {
     const { isRecording, filename, filters, devices, selectedDevice, pcapFiles } = this.state;
+    var showPcapFiles = <div>No pcap files?</div>
+
+
+    const httpUrl = this.props.wsUrl.replace('ws://', 'http://');
+
+    if(pcapFiles && pcapFiles != undefined){
+        showPcapFiles = <VStack mt={4} spacing={4} align="stretch">
+    {pcapFiles.map((file, index) => (
+      <Box key={index} p={4} borderWidth="1px" borderRadius="lg">
+        <Text>Name: {file.name}</Text>
+        <Text>Date: {file.date}</Text>
+        <Text>Size: {file.size} bytes</Text>
+        <Link href={httpUrl + file.download} isExternal color="teal.500">
+          Download 
+        </Link>
+      </Box>
+    ))}
+  </VStack>
+    }
 
     return (
       <Box p={5}>
@@ -130,23 +141,15 @@ class RecordTraffic extends Component {
         </FormControl>
 
         <Button mt={4} colorScheme="blue" onClick={this.fetchPcapFiles}>Refresh List</Button>
-
-        <VStack mt={4} spacing={4} align="stretch">
-          {pcapFiles.map((file, index) => (
-            <Box key={index} p={4} borderWidth="1px" borderRadius="lg">
-              <Text>Name: {file.name}</Text>
-              <Text>Date: {file.date}</Text>
-              <Text>Size: {file.size} bytes</Text>
-              <Link href={file.download} isExternal color="teal.500">
-                Download
-              </Link>
-            </Box>
-          ))}
-        </VStack>
+        
+        {showPcapFiles}
+        
       </Box>
     );
   }
 }
+
+
 
 
 export default RecordTraffic;

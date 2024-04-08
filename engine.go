@@ -31,6 +31,9 @@ type TrafficInfo struct {
 }
 
 func main() {
+
+    ensureDirExists("./front/build/pcap")
+
     app := fiber.New()
 
     app.Use(cors.New(cors.Config{
@@ -85,6 +88,7 @@ func setupRoutes(app *fiber.App) {
     app.Post("/stoprecord", stopRecordHandler)
     app.Get("/list-devices", listDevicesHandler)
     app.Get("/list-pcap-files", listPcapFilesHandler)
+    app.Get("/jsonpcap/:filename", handlePcapFile)
 }
 
 func listDevicesHandler(c *fiber.Ctx) error {

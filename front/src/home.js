@@ -1,4 +1,4 @@
-import { Box, Image, Wrap, WrapItem, Text, Card, CardHeader, CardBody, CardFooter, Heading, Stack, Link } from '@chakra-ui/react';
+import { Box, Image, Wrap, WrapItem, Text, Card, CardHeader, CardBody, CardFooter, Heading, Stack, Link, Button } from '@chakra-ui/react';
 import React, { Component } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
 import {
@@ -13,6 +13,7 @@ import TrafficListener from './trafficlistener';
 
 import logo from './imgs/logo.png';
 import RecordTraffic from './record';
+import DataPreparation from './prepare';
 
 
 //prod
@@ -20,7 +21,7 @@ const protocolPrefix = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 var wsUrl = `${protocolPrefix}//${window.location.host}`;
 
 //testing
-//wsUrl = 'ws://192.168.0.222:3000';
+wsUrl = 'ws://192.168.0.222:3000';
 
 class HomePage extends Component {
 
@@ -45,10 +46,13 @@ class HomePage extends Component {
             <WrapItem p="5">
               <Wrap>
                 <WrapItem>
-                  <RLink to="/">Home</RLink>
+                  <RLink to="/"><Button>Home</Button></RLink>
                 </WrapItem>
                 <WrapItem>
-                  <RLink to="/record">Record</RLink>
+                  <RLink to="/record"><Button>Record</Button></RLink>
+                </WrapItem>
+                <WrapItem>
+                  <RLink to="/preprocessing"><Button>Preprocessing</Button></RLink>
                 </WrapItem>
               </Wrap>
             </WrapItem>
@@ -63,6 +67,10 @@ class HomePage extends Component {
 
           <Route exact path="/record">
             <RecordTraffic wsUrl={wsUrl} />
+          </Route>
+
+          <Route exact path="/preprocessing">
+            <DataPreparation wsUrl={wsUrl} />
           </Route>
 
           
