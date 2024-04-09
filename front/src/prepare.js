@@ -46,9 +46,9 @@ class DataPreparation extends Component {
   applyRules = () => {
     const { selectedPcap, rules } = this.state;
     const httpUrl = this.props.wsUrl.replace('ws://', 'http://');
-
+    console.log(rules,selectedPcap);
     // Parse the rules from the textarea
-    const parsedRules = rules.split('\n').map((rule) => {
+    /*const parsedRules = rules.split('\n').map((rule) => {
       const [condition, scanType] = rule.split('=>');
       return {
         condition: condition.trim(),
@@ -65,7 +65,7 @@ class DataPreparation extends Component {
           csvData: response.data.csvData,
         });
       })
-      .catch(error => console.error('Error processing PCAP file:', error));
+      .catch(error => console.error('Error processing PCAP file:', error));*/
   };
 
   saveCsv = () => {
