@@ -5,6 +5,7 @@ import (
     "os"
     "sync"
 	"fmt"
+	"strconv"
     "github.com/google/gopacket"
     "github.com/google/gopacket/pcap"
     "github.com/google/gopacket/pcapgo"
@@ -147,8 +148,17 @@ func stopCapture() {
 
 
 func handlePcapFile(c *fiber.Ctx) error {
+
+	page := c.Query("page", "1")
+	//fmt.Println(page)
+
+	pageNum, err := strconv.Atoi(page)
+    if err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid limit parameter"})
+    }
+
     filename := c.Params("filename")
-    packets, err := readPcapFile(fmt.Sprintf("./front/build/pcap/%s", filename))
+    packets, err := readPcapFile(fmt.Sprintf("./front/build/pcap/%s", filename),pageNum)
     if err != nil {
         return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
     }
@@ -156,8 +166,11 @@ func handlePcapFile(c *fiber.Ctx) error {
     return c.JSON(packets)
 }
 
-func readPcapFile(filename string) ([]map[string]interface{}, error) {
-    pcapFile, err := pcap.OpenOffline(filename)
+func readPcapFile(filename string, pageNum int) ([]map[string]interface{}, error) {
+    
+	//fmt.Println(pageNum);
+	
+	pcapFile, err := pcap.OpenOffline(filename)
     if err != nil {
         return nil, fmt.Errorf("failed to open pcap file: %v", err)
     }
@@ -166,78 +179,98 @@ func readPcapFile(filename string) ([]map[string]interface{}, error) {
     packetSource := gopacket.NewPacketSource(pcapFile, pcapFile.LinkType())
     packets := make([]map[string]interface{}, 0)
 
+	limit := 500
+
+	startIndex := (pageNum - 1) * limit
+    endIndex := startIndex + limit
+	currentIndex := 0
+
     for packet := range packetSource.Packets() {
-        packetInfo := make(map[string]interface{})
 
-        // Metadata
-        packetInfo["timestamp"] = packet.Metadata().Timestamp
-        packetInfo["length"] = packet.Metadata().CaptureInfo.Length
+		if currentIndex >= startIndex && currentIndex < endIndex {
 
-        // Ethernet layer
-        if ethernetLayer := packet.Layer(layers.LayerTypeEthernet); ethernetLayer != nil {
-            ethernet, _ := ethernetLayer.(*layers.Ethernet)
-            packetInfo["ethernet_source"] = ethernet.SrcMAC.String()
-            packetInfo["ethernet_destination"] = ethernet.DstMAC.String()
-            packetInfo["ethernet_type"] = ethernet.EthernetType.String()
-        }
+			packetInfo := make(map[string]interface{})
 
-        // IP layer
-        if ipLayer := packet.Layer(layers.LayerTypeIPv4); ipLayer != nil {
-            ip, _ := ipLayer.(*layers.IPv4)
-            packetInfo["ip_version"] = ip.Version
-            packetInfo["ip_ihl"] = ip.IHL
-            packetInfo["ip_tos"] = ip.TOS
-            packetInfo["ip_length"] = ip.Length
-            packetInfo["ip_id"] = ip.Id
-            packetInfo["ip_flags"] = ip.Flags
-            packetInfo["ip_fragment_offset"] = ip.FragOffset
-            packetInfo["ip_ttl"] = ip.TTL
-            packetInfo["ip_protocol"] = ip.Protocol
-            packetInfo["ip_checksum"] = ip.Checksum
-            packetInfo["ip_source"] = ip.SrcIP.String()
-            packetInfo["ip_destination"] = ip.DstIP.String()
-            packetInfo["ip_options"] = ip.Options
-        }
+			// Metadata
+			packetInfo["timestamp"] = packet.Metadata().Timestamp
+			packetInfo["length"] = packet.Metadata().CaptureInfo.Length
 
-        // TCP layer
+			// Ethernet layer
+			if ethernetLayer := packet.Layer(layers.LayerTypeEthernet); ethernetLayer != nil {
+				ethernet, _ := ethernetLayer.(*layers.Ethernet)
+				packetInfo["ethernet_source"] = ethernet.SrcMAC.String()
+				packetInfo["ethernet_destination"] = ethernet.DstMAC.String()
+				packetInfo["ethernet_type"] = ethernet.EthernetType.String()
+			}
 
-		if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
-			tcp, _ := tcpLayer.(*layers.TCP)
-			packetInfo["tcp_source_port"] = tcp.SrcPort
-			packetInfo["tcp_destination_port"] = tcp.DstPort
-			packetInfo["tcp_sequence"] = tcp.Seq
-			packetInfo["tcp_acknowledgment"] = tcp.Ack
-			packetInfo["tcp_data_offset"] = tcp.DataOffset
-			packetInfo["tcp_flags_ns"] = tcp.NS
-			packetInfo["tcp_flags_cwr"] = tcp.CWR
-			packetInfo["tcp_flags_ece"] = tcp.ECE
-			packetInfo["tcp_flags_urg"] = tcp.URG
-			packetInfo["tcp_flags_ack"] = tcp.ACK
-			packetInfo["tcp_flags_psh"] = tcp.PSH
-			packetInfo["tcp_flags_rst"] = tcp.RST
-			packetInfo["tcp_flags_syn"] = tcp.SYN
-			packetInfo["tcp_flags_fin"] = tcp.FIN
-			packetInfo["tcp_window"] = tcp.Window
-			packetInfo["tcp_checksum"] = tcp.Checksum
-			packetInfo["tcp_urgent_pointer"] = tcp.Urgent
-			packetInfo["tcp_options"] = tcp.Options
+			// IP layer
+			if ipLayer := packet.Layer(layers.LayerTypeIPv4); ipLayer != nil {
+				ip, _ := ipLayer.(*layers.IPv4)
+				packetInfo["ip_version"] = ip.Version
+				packetInfo["ip_ihl"] = ip.IHL
+				packetInfo["ip_tos"] = ip.TOS
+				packetInfo["ip_length"] = ip.Length
+				packetInfo["ip_id"] = ip.Id
+				packetInfo["ip_flags"] = ip.Flags
+				packetInfo["ip_fragment_offset"] = ip.FragOffset
+				packetInfo["ip_ttl"] = ip.TTL
+				packetInfo["ip_protocol"] = ip.Protocol
+				packetInfo["ip_checksum"] = ip.Checksum
+				packetInfo["ip_source"] = ip.SrcIP.String()
+				packetInfo["ip_destination"] = ip.DstIP.String()
+				packetInfo["ip_options"] = ip.Options
+			}
+
+			// TCP layer
+
+			if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
+				tcp, _ := tcpLayer.(*layers.TCP)
+				packetInfo["tcp_source_port"] = tcp.SrcPort
+				packetInfo["tcp_destination_port"] = tcp.DstPort
+				packetInfo["tcp_sequence"] = tcp.Seq
+				packetInfo["tcp_acknowledgment"] = tcp.Ack
+				packetInfo["tcp_data_offset"] = tcp.DataOffset
+				packetInfo["tcp_flags_ns"] = tcp.NS
+				packetInfo["tcp_flags_cwr"] = tcp.CWR
+				packetInfo["tcp_flags_ece"] = tcp.ECE
+				packetInfo["tcp_flags_urg"] = tcp.URG
+				packetInfo["tcp_flags_ack"] = tcp.ACK
+				packetInfo["tcp_flags_psh"] = tcp.PSH
+				packetInfo["tcp_flags_rst"] = tcp.RST
+				packetInfo["tcp_flags_syn"] = tcp.SYN
+				packetInfo["tcp_flags_fin"] = tcp.FIN
+				packetInfo["tcp_window"] = tcp.Window
+				packetInfo["tcp_checksum"] = tcp.Checksum
+				packetInfo["tcp_urgent_pointer"] = tcp.Urgent
+				packetInfo["tcp_options"] = tcp.Options
+			}
+
+			// UDP layer
+			if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
+				udp, _ := udpLayer.(*layers.UDP)
+				packetInfo["udp_source_port"] = udp.SrcPort
+				packetInfo["udp_destination_port"] = udp.DstPort
+				packetInfo["udp_length"] = udp.Length
+				packetInfo["udp_checksum"] = udp.Checksum
+			}
+
+			// Raw payload
+			if appLayer := packet.ApplicationLayer(); appLayer != nil {
+				packetInfo["payload"] = string(appLayer.Payload())
+				//packetInfo["payload"] = ""
+			}
+
+
+			
+
+			packets = append(packets, packetInfo)
+
+			
 		}
-
-        // UDP layer
-        if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
-            udp, _ := udpLayer.(*layers.UDP)
-            packetInfo["udp_source_port"] = udp.SrcPort
-            packetInfo["udp_destination_port"] = udp.DstPort
-            packetInfo["udp_length"] = udp.Length
-            packetInfo["udp_checksum"] = udp.Checksum
+		currentIndex++
+        if currentIndex >= endIndex {
+            break
         }
-
-        // Raw payload
-        if appLayer := packet.ApplicationLayer(); appLayer != nil {
-            packetInfo["payload"] = string(appLayer.Payload())
-        }
-
-        packets = append(packets, packetInfo)
     }
 
     return packets, nil
@@ -269,6 +302,8 @@ func getUniquePcapColumns(filename string) ([]string, error) {
     uniqueColumns := make(map[string]bool)
 
     for packet := range packetSource.Packets() {
+
+
         packetInfo := make(map[string]interface{})
 
         // Metadata
@@ -351,4 +386,128 @@ func getUniquePcapColumns(filename string) ([]string, error) {
     }
 
     return columns, nil
+}
+
+
+func ChunkshandlePcapFile(c *fiber.Ctx) error {
+    filename := c.Params("filename")
+    page := c.Query("page", "1")
+    limit := c.Query("limit", "2000")
+
+    pageInt, err := strconv.Atoi(page)
+    if err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid page parameter"})
+    }
+
+    limitInt, err := strconv.Atoi(limit)
+    if err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid limit parameter"})
+    }
+
+    packets, err := readPcapFileChunked(fmt.Sprintf("./front/build/pcap/%s", filename), pageInt, limitInt)
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+    }
+
+    response := fiber.Map{
+        "packets": packets,
+    }
+
+    return c.JSON(response)
+}
+
+func readPcapFileChunked(filename string, page, limit int) ([]map[string]interface{}, error) {
+    pcapFile, err := pcap.OpenOffline(filename)
+    if err != nil {
+        return nil, fmt.Errorf("failed to open pcap file: %v", err)
+    }
+    defer pcapFile.Close()
+
+    packetSource := gopacket.NewPacketSource(pcapFile, pcapFile.LinkType())
+    packets := make([]map[string]interface{}, 0)
+
+    startIndex := (page - 1) * limit
+    endIndex := startIndex + limit
+
+    currentIndex := 0
+    for packet := range packetSource.Packets() {
+        if currentIndex >= startIndex && currentIndex < endIndex {
+            packetInfo := make(map[string]interface{})
+
+            // Metadata
+            packetInfo["timestamp"] = packet.Metadata().Timestamp
+            packetInfo["length"] = packet.Metadata().CaptureInfo.Length
+
+            // Ethernet layer
+            if ethernetLayer := packet.Layer(layers.LayerTypeEthernet); ethernetLayer != nil {
+                ethernet, _ := ethernetLayer.(*layers.Ethernet)
+                packetInfo["ethernet_source"] = ethernet.SrcMAC.String()
+                packetInfo["ethernet_destination"] = ethernet.DstMAC.String()
+                packetInfo["ethernet_type"] = ethernet.EthernetType.String()
+            }
+
+            // IP layer
+            if ipLayer := packet.Layer(layers.LayerTypeIPv4); ipLayer != nil {
+                ip, _ := ipLayer.(*layers.IPv4)
+                packetInfo["ip_version"] = ip.Version
+                packetInfo["ip_ihl"] = ip.IHL
+                packetInfo["ip_tos"] = ip.TOS
+                packetInfo["ip_length"] = ip.Length
+                packetInfo["ip_id"] = ip.Id
+                packetInfo["ip_flags"] = ip.Flags
+                packetInfo["ip_fragment_offset"] = ip.FragOffset
+                packetInfo["ip_ttl"] = ip.TTL
+                packetInfo["ip_protocol"] = ip.Protocol
+                packetInfo["ip_checksum"] = ip.Checksum
+                packetInfo["ip_source"] = ip.SrcIP.String()
+                packetInfo["ip_destination"] = ip.DstIP.String()
+                packetInfo["ip_options"] = ip.Options
+            }
+
+            // TCP layer
+            if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
+                tcp, _ := tcpLayer.(*layers.TCP)
+                packetInfo["tcp_source_port"] = tcp.SrcPort
+                packetInfo["tcp_destination_port"] = tcp.DstPort
+                packetInfo["tcp_sequence"] = tcp.Seq
+                packetInfo["tcp_acknowledgment"] = tcp.Ack
+                packetInfo["tcp_data_offset"] = tcp.DataOffset
+                packetInfo["tcp_flags_ns"] = tcp.NS
+                packetInfo["tcp_flags_cwr"] = tcp.CWR
+                packetInfo["tcp_flags_ece"] = tcp.ECE
+                packetInfo["tcp_flags_urg"] = tcp.URG
+                packetInfo["tcp_flags_ack"] = tcp.ACK
+                packetInfo["tcp_flags_psh"] = tcp.PSH
+                packetInfo["tcp_flags_rst"] = tcp.RST
+                packetInfo["tcp_flags_syn"] = tcp.SYN
+                packetInfo["tcp_flags_fin"] = tcp.FIN
+                packetInfo["tcp_window"] = tcp.Window
+                packetInfo["tcp_checksum"] = tcp.Checksum
+                packetInfo["tcp_urgent_pointer"] = tcp.Urgent
+                packetInfo["tcp_options"] = tcp.Options
+            }
+
+            // UDP layer
+            if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
+                udp, _ := udpLayer.(*layers.UDP)
+                packetInfo["udp_source_port"] = udp.SrcPort
+                packetInfo["udp_destination_port"] = udp.DstPort
+                packetInfo["udp_length"] = udp.Length
+                packetInfo["udp_checksum"] = udp.Checksum
+            }
+
+            // Raw payload
+            if appLayer := packet.ApplicationLayer(); appLayer != nil {
+                packetInfo["payload"] = string(appLayer.Payload())
+            }
+
+            packets = append(packets, packetInfo)
+        }
+        currentIndex++
+        if currentIndex >= endIndex {
+            break
+        }
+    }
+
+    return packets, nil
 }
