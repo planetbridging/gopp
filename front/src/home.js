@@ -21,7 +21,7 @@ const protocolPrefix = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 var wsUrl = `${protocolPrefix}//${window.location.host}`;
 
 //testing
-wsUrl = 'ws://192.168.0.222:3000';
+//wsUrl = 'ws://192.168.0.222:3000';
 
 class HomePage extends Component {
 

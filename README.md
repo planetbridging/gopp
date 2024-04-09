@@ -23,3 +23,23 @@ git clone https://github.com/planetbridging/gopp.git
 cd gopp
 docker-compose up --build
 ```
+
+Running golang without docker cmd it needs root:
+```bash
+sudo /usr/local/go/bin/go run .
+```
+
+Running react in dev mode simply cd to front and npm start and change testing to the ip of the running golang server:
+
+//prod
+const protocolPrefix = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+var wsUrl = `${protocolPrefix}//${window.location.host}`;
+
+//testing
+//wsUrl = 'ws://192.168.0.222:3000';
+
+to
+wsUrl = 'ws://192.168.0.222:3000';
+
+
+Once finished changes comment out wsUrl then run npm run build and delete pcap folder in the build.
