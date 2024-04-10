@@ -6,12 +6,19 @@ import (
     "sync"
 	"fmt"
 	"strconv"
+    "strings"
+    "time"
+    "bytes"
+    "encoding/csv"
+    "path/filepath"
     "github.com/google/gopacket"
     "github.com/google/gopacket/pcap"
     "github.com/google/gopacket/pcapgo"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/gopacket/layers"
+    "github.com/google/uuid"
 )
+
 
 var (
     // Packet capture handle
@@ -510,4 +517,144 @@ func readPcapFileChunked(filename string, page, limit int) ([]map[string]interfa
     }
 
     return packets, nil
+}
+
+
+func handlePcapRules(c *fiber.Ctx) error {
+    var request struct {
+        Rules    string `json:"rules"`
+        Filename string `json:"filename"`
+        Save     bool   `json:"save"`
+    }
+    if err := c.BodyParser(&request); err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request payload"})
+    }
+
+    rules := strings.Split(request.Rules, "\n")
+    tmpLimitToView := 2000
+    if request.Save {
+        tmpLimitToView = 10000000
+    }
+
+    csvData, err := processPcapWithRules(request.Filename, rules,tmpLimitToView)
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+    }
+
+    if request.Save {
+        // Generate a unique filename for the CSV file
+        csvFilename := fmt.Sprintf("%s_applied_rules_%s.csv", strings.TrimSuffix(request.Filename, filepath.Ext(request.Filename)), uuid.New().String())
+
+        // Save the CSV data to a file
+        dir := "./front/build/csv"
+        ensureDirExists(dir)
+        fullPath := fmt.Sprintf("%s/%s", dir, csvFilename)
+        if err := os.WriteFile(fullPath, csvData, 0644); err != nil {
+            return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save CSV file"})
+        }
+    }
+
+    return c.Send(csvData)
+}
+
+func processPcapWithRules(filename string, rules []string,packetLimitCount int) ([]byte, error) {
+    pcapFile, err := pcap.OpenOffline(fmt.Sprintf("./front/build/pcap/%s", filename))
+    if err != nil {
+        return nil, fmt.Errorf("failed to open pcap file: %v", err)
+    }
+    defer pcapFile.Close()
+
+    packetSource := gopacket.NewPacketSource(pcapFile, pcapFile.LinkType())
+
+    var csvData [][]string
+    csvData = append(csvData, []string{"timestamp", "source_ip", "destination_ip", "protocol", "length", "http_scan", "ping_scan", "nmap_scan", "unmalicious", "maybemalicious", "malicious"})
+
+    for packet := range packetSource.Packets() {
+        row := []string{
+            packet.Metadata().Timestamp.Format(time.RFC3339),
+            "",
+            "",
+            "",
+            strconv.Itoa(packet.Metadata().Length),
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+        }
+
+        if ipLayer := packet.Layer(layers.LayerTypeIPv4); ipLayer != nil {
+            ip, _ := ipLayer.(*layers.IPv4)
+            row[1] = ip.SrcIP.String()
+            row[2] = ip.DstIP.String()
+            row[3] = ip.Protocol.String()
+        }
+
+        for _, rule := range rules {
+            ruleParts := strings.Split(strings.TrimSpace(rule), ",")
+            if len(ruleParts) != 4 {
+                continue
+            }
+
+            ruleType := ruleParts[0]
+            ruleCondition := ruleParts[1]
+            ruleLabel := ruleParts[2]
+            ruleSeverity := ruleParts[3]
+
+            switch ruleType {
+            case "contain":
+                if appLayer := packet.ApplicationLayer(); appLayer != nil {
+                    payload := string(appLayer.Payload())
+                    if strings.Contains(payload, ruleCondition) {
+                        if ruleLabel == "http" {
+                            row[5] = "1"
+                            if ruleSeverity == "unmalicious" {
+                                row[8] = "1"
+                            }
+                        }
+                    }
+                }
+            case "layers.ICMPv4":
+                if icmpLayer := packet.Layer(layers.LayerTypeICMPv4); icmpLayer != nil {
+                    icmp, _ := icmpLayer.(*layers.ICMPv4)
+                    if icmp.TypeCode.Type() == layers.ICMPv4TypeEchoRequest {
+                        if ruleLabel == "ping" {
+                            row[6] = "1"
+                            if ruleSeverity == "maybemalicious" {
+                                row[9] = "1"
+                            }
+                        }
+                    }
+                }
+            case "layers.TCP":
+                if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
+                    tcp, _ := tcpLayer.(*layers.TCP)
+                    if tcp.SYN && !tcp.ACK && len(tcp.Options) > 0 {
+                        if ruleLabel == "nmapscan" {
+                            row[7] = "1"
+                            if ruleSeverity == "malicious" {
+                                row[10] = "1"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        csvData = append(csvData, row)
+
+        if len(csvData) >= packetLimitCount {
+            break
+        }
+    }
+
+    var buf bytes.Buffer
+    w := csv.NewWriter(&buf)
+    w.WriteAll(csvData)
+    if err := w.Error(); err != nil {
+        return nil, err
+    }
+
+    return buf.Bytes(), nil
 }

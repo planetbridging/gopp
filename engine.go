@@ -94,6 +94,8 @@ func setupRoutes(app *fiber.App) {
     app.Get("/list-pcap-files", listPcapFilesHandler)
     app.Get("/jsonpcap/:filename", handlePcapFile)
     app.Get("/jsonpcapcolumns/:filename", handlePcapColumns)
+    app.Post("/pcap-rules", handlePcapRules)
+    app.Get("/list-csv-files", listCsvFilesHandler)
 }
 
 func listDevicesHandler(c *fiber.Ctx) error {
@@ -119,8 +121,16 @@ func listDevicesHandler(c *fiber.Ctx) error {
 }
 
 func listPcapFilesHandler(c *fiber.Ctx) error {
+    return showStrictFiles(c,"pcap")
+}
+
+func listCsvFilesHandler(c *fiber.Ctx) error {
+    return showStrictFiles(c,"csv")
+}
+
+func showStrictFiles(c *fiber.Ctx, whichFolder string) error{
     var filesInfo []map[string]string
-    dir := "./front/build/pcap"
+    dir := "./front/build/" + whichFolder
 
     files, err := os.ReadDir(dir)
     if err != nil {
@@ -136,7 +146,7 @@ func listPcapFilesHandler(c *fiber.Ctx) error {
                 "name":     file.Name(),
                 "date":     fileInfo.ModTime().Format(time.RFC3339),
                 "size":     fmt.Sprintf("%d", fileInfo.Size()),
-                "download": fmt.Sprintf("/pcap/%s", file.Name()),
+                "download": fmt.Sprintf("/"+whichFolder+"/%s", file.Name()),
             })
         }
     }
