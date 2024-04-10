@@ -43,3 +43,19 @@ wsUrl = 'ws://192.168.0.222:3000';
 
 
 Once finished changes comment out wsUrl then run npm run build and delete pcap folder in the build.
+
+
+Pcap to csv rules examples
+
+```bash
+contain,GET,http,unmalicious
+contain,POST,http,unmalicious
+contain,HEAD,http,unmalicious
+layers.ICMPv4,type=ICMPv4TypeEchoRequest,ping,maybemalicious
+layers.TCP,tcp.SYN && !tcp.ACK && len(tcp.Options) > 0,nmapscan,malicious
+```
+
+Can generate traffic with script like this, just replace ip and/or link
+```bash
+https://github.com/planetbridging/Python/blob/master/webdatagen.py
+```
