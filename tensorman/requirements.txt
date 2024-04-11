@@ -1,3 +1,7 @@
 pandas
 rarfile
 jupyter
+matplotlib 
+seaborn 
+scikit-learn 
+shap

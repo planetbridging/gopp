@@ -18,6 +18,12 @@ services:
     restart: always
     volumes:
       - shared-data:/shared
+  node-app:
+    build:
+      context: ./deploy
+      dockerfile: Dockerfile
+    ports:
+      - "8030:8030"
 
 
 volumes:

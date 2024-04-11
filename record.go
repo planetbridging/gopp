@@ -557,7 +557,7 @@ func handlePcapRules(c *fiber.Ctx) error {
     return c.Send(csvData)
 }
 
-func processPcapWithRules(filename string, rules []string,packetLimitCount int) ([]byte, error) {
+func NoPayloadprocessPcapWithRules(filename string, rules []string,packetLimitCount int) ([]byte, error) {
     pcapFile, err := pcap.OpenOffline(fmt.Sprintf("./front/build/pcap/%s", filename))
     if err != nil {
         return nil, fmt.Errorf("failed to open pcap file: %v", err)
@@ -602,6 +602,16 @@ func processPcapWithRules(filename string, rules []string,packetLimitCount int) 
             ruleLabel := ruleParts[2]
             ruleSeverity := ruleParts[3]
 
+
+            if appLayer := packet.ApplicationLayer(); appLayer != nil {
+                payload := string(appLayer.Payload())
+                // Print the payload information
+                fmt.Printf("Payload: %s\n", payload)
+                fmt.Printf("Decimal Values: %s\n", transformString(payload))
+                fmt.Println("---")
+            }
+
+
             switch ruleType {
             case "contain":
                 if appLayer := packet.ApplicationLayer(); appLayer != nil {
@@ -644,6 +654,105 @@ func processPcapWithRules(filename string, rules []string,packetLimitCount int) 
 
         csvData = append(csvData, row)
 
+        if len(csvData) >= packetLimitCount {
+            break
+        }
+    }
+
+    var buf bytes.Buffer
+    w := csv.NewWriter(&buf)
+    w.WriteAll(csvData)
+    if err := w.Error(); err != nil {
+        return nil, err
+    }
+
+    return buf.Bytes(), nil
+}
+
+
+func processPcapWithRules(filename string, rules []string, packetLimitCount int) ([]byte, error) {
+    pcapFile, err := pcap.OpenOffline(fmt.Sprintf("./front/build/pcap/%s", filename))
+    if err != nil {
+        return nil, fmt.Errorf("failed to open pcap file: %v", err)
+    }
+    defer pcapFile.Close()
+
+    packetSource := gopacket.NewPacketSource(pcapFile, pcapFile.LinkType())
+
+    var csvData [][]string
+    csvData = append(csvData, []string{"timestamp", "source_ip", "destination_ip", "protocol", "length", "http_scan", "ping_scan", "nmap_scan", "unmalicious", "maybemalicious", "malicious", "payload"})
+
+    for packet := range packetSource.Packets() {
+        row := []string{
+            packet.Metadata().Timestamp.Format(time.RFC3339),
+            "", "", "", strconv.Itoa(packet.Metadata().Length),
+            "0", "0", "0", "0", "0", "0", "",
+        }
+
+        if ipLayer := packet.Layer(layers.LayerTypeIPv4); ipLayer != nil {
+            ip, _ := ipLayer.(*layers.IPv4)
+            row[1] = ip.SrcIP.String()
+            row[2] = ip.DstIP.String()
+            row[3] = ip.Protocol.String()
+        }
+
+        var payload string
+        if appLayer := packet.ApplicationLayer(); appLayer != nil {
+            payload = string(appLayer.Payload())
+        }
+
+        for _, rule := range rules {
+            ruleParts := strings.Split(strings.TrimSpace(rule), ",")
+            if len(ruleParts) != 4 {
+                continue
+            }
+
+            ruleType := ruleParts[0]
+            ruleCondition := ruleParts[1]
+            ruleLabel := ruleParts[2]
+            ruleSeverity := ruleParts[3]
+
+            switch ruleType {
+            case "contain":
+                if strings.Contains(payload, ruleCondition) {
+                    if ruleLabel == "http" {
+                        row[5] = "1"
+                        if ruleSeverity == "unmalicious" {
+                            row[8] = "1"
+                        }
+                    }
+                }
+            case "layers.ICMPv4":
+                if icmpLayer := packet.Layer(layers.LayerTypeICMPv4); icmpLayer != nil {
+                    icmp, _ := icmpLayer.(*layers.ICMPv4)
+                    if icmp.TypeCode.Type() == layers.ICMPv4TypeEchoRequest {
+                        if ruleLabel == "ping" {
+                            row[6] = "1"
+                            if ruleSeverity == "maybemalicious" {
+                                row[9] = "1"
+                            }
+                        }
+                    }
+                }
+            case "layers.TCP":
+                if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
+                    tcp, _ := tcpLayer.(*layers.TCP)
+                    if tcp.SYN && !tcp.ACK && len(tcp.Options) > 0 {
+                        if ruleLabel == "nmapscan" {
+                            row[7] = "1"
+                            if ruleSeverity == "malicious" {
+                                row[10] = "1"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Add the transformed payload to the row
+        row[11] = transformString(payload)
+
+        csvData = append(csvData, row)
         if len(csvData) >= packetLimitCount {
             break
         }

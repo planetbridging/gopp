@@ -32,6 +32,7 @@ type TrafficInfo struct {
 
 func main() {
 
+
     ensureDirExists("./front/build/pcap")
 
     app := fiber.New()
@@ -43,6 +44,10 @@ func main() {
     }))
 
     app.Get("/traffic", websocket.New(handleWebSocket))
+
+    str := "Hello, World! 123  !@#$%^&*()"
+    decimals := transformString(str)
+    fmt.Printf("String: %s\nDecimals: %s\n", str, decimals)
 
     go captureTraffic(app)
 

@@ -1,0 +1,11 @@
+{
+    "name": "testing",
+    "version": "1.0.0",
+    "description": "Your app description",
+    "main": "app.js",
+    "dependencies": {
+    "@tensorflow/tfjs-node": "^2.0.0",
+      "express": "^4.17.1"
+    }
+  }
+  

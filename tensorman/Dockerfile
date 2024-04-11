@@ -16,6 +16,14 @@ RUN python3 -m venv venv && \
     venv/bin/pip install --no-cache-dir -r requirements.txt && \
     venv/bin/pip install --no-cache-dir jupyterlab==3.5.2 nbconvert==7.2.7 pdf2image
 
+# Switch to root to install Azure CLI
+USER root
+RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+
+# Switch back to jupyter user
+USER jupyter
+
+
 COPY . .
 
 # Set Jupyter Notebook password and disable token authentication
