@@ -14,6 +14,7 @@ import TrafficListener from './trafficlistener';
 import logo from './imgs/logo.png';
 import RecordTraffic from './record';
 import DataPreparation from './prepare';
+import DeployListener from './deploy';
 
 
 //prod
@@ -23,12 +24,23 @@ var wsUrl = `${protocolPrefix}//${window.location.host}`;
 //testing
 //wsUrl = 'ws://192.168.0.222:3000';
 
+var deployMode = true;
+
 class HomePage extends Component {
 
   render() {
 
     var showTrafficListener = <TrafficListener webSockUrl={wsUrl} />;
 
+    var btnRecord = <RLink to="/record"><Button>Record</Button></RLink>;
+    var btnProcess = <RLink to="/preprocessing"><Button>Preprocessing</Button></RLink>
+
+    if(deployMode){
+      btnRecord = <></>
+      btnProcess = <></>
+
+      btnRecord = <RLink to="/predict"><Button>DeployTesting</Button></RLink>;
+    }
 
     return <Box w="100%" minH={"100vh"} bg='#4A5568'>
       <Router>
@@ -49,10 +61,10 @@ class HomePage extends Component {
                   <RLink to="/"><Button>Home</Button></RLink>
                 </WrapItem>
                 <WrapItem>
-                  <RLink to="/record"><Button>Record</Button></RLink>
+                  {btnRecord}
                 </WrapItem>
                 <WrapItem>
-                  <RLink to="/preprocessing"><Button>Preprocessing</Button></RLink>
+                  
                 </WrapItem>
               </Wrap>
             </WrapItem>
@@ -73,6 +85,10 @@ class HomePage extends Component {
             <DataPreparation wsUrl={wsUrl} />
           </Route>
 
+
+          <Route exact path="/predict">
+            <DeployListener wsUrl={wsUrl} />
+          </Route>
           
 
         </Switch>

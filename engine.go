@@ -45,9 +45,9 @@ func main() {
 
     app.Get("/traffic", websocket.New(handleWebSocket))
 
-    str := "Hello, World! 123  !@#$%^&*()"
-    decimals := transformString(str)
-    fmt.Printf("String: %s\nDecimals: %s\n", str, decimals)
+    //str := "Hello, World! 123  !@#$%^&*()"
+    //decimals := transformString(str)
+    //fmt.Printf("String: %s\nDecimals: %s\n", str, decimals)
 
     go captureTraffic(app)
 
@@ -93,14 +93,25 @@ func main() {
 }
 
 func setupRoutes(app *fiber.App) {
-    app.Post("/startrecord", startRecordHandler)
-    app.Post("/stoprecord", stopRecordHandler)
+
+    hardCodedDeployLockTmp := true
+
+    if hardCodedDeployLockTmp{
+        fmt.Println("deployed")
+        setupProxyRoute(app)
+    }else{
+        app.Post("/startrecord", startRecordHandler)
+        app.Post("/stoprecord", stopRecordHandler)
+        app.Get("/list-pcap-files", listPcapFilesHandler)
+        app.Get("/jsonpcap/:filename", handlePcapFile)
+        app.Get("/jsonpcapcolumns/:filename", handlePcapColumns)
+        app.Post("/pcap-rules", handlePcapRules)
+        app.Get("/list-csv-files", listCsvFilesHandler)
+    }
+
     app.Get("/list-devices", listDevicesHandler)
-    app.Get("/list-pcap-files", listPcapFilesHandler)
-    app.Get("/jsonpcap/:filename", handlePcapFile)
-    app.Get("/jsonpcapcolumns/:filename", handlePcapColumns)
-    app.Post("/pcap-rules", handlePcapRules)
-    app.Get("/list-csv-files", listCsvFilesHandler)
+
+    
 }
 
 func listDevicesHandler(c *fiber.Ctx) error {
@@ -261,10 +272,10 @@ func processPackets(packetSource *gopacket.PacketSource, deviceName string, c *w
                 Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
             }
 
-            fmt.Printf("Sending traffic data: %+v\n", trafficData)
+            //fmt.Printf("Sending traffic data: %+v\n", trafficData)
             err := c.WriteJSON(trafficData)
             if err != nil {
-                fmt.Println("Error sending traffic data:", err)
+                //fmt.Println("Error sending traffic data:", err)
                 return err
             }
 

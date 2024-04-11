@@ -59,3 +59,9 @@ Can generate traffic with script like this, just replace ip and/or link
 ```bash
 https://github.com/planetbridging/Python/blob/master/webdatagen.py
 ```
+
+
+Deploy without tensorman running
+```bash
+docker-compose up --scale tensorman=0
+```
